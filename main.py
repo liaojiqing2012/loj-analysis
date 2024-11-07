@@ -10,27 +10,28 @@ from selenium.webdriver.chrome.options import Options
 
 BASE_URL = "https://loj.ac/p?page={}"
 
-# Configure Selenium WebDriver
+# 配置 Selenium WebDriver
 chrome_options = Options()
-chrome_options.add_argument("--headless")
+chrome_options.add_argument("--headless")  # 无头模式，不显示浏览器界面
 chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
 
 def get_problem_list(page_number):
+    # 启动 WebDriver
     driver = webdriver.Chrome(options=chrome_options)
     driver.get(BASE_URL.format(page_number))
     
-    # Check the page source to see if it's loaded properly
-    time.sleep(5)  # Increase static wait to ensure the page has enough time to load
-    print(f"Page {page_number}: Loading page source...")
+    # 检查页面是否正确加载
+    #time.sleep(1)  # 增加静态等待时间，确保页面有足够时间加载
+    print(f"第 {page_number} 页：正在加载页面内容...")
     
     try:
-        # Wait until the problem rows are loaded
+        # 等待问题行加载完成
         WebDriverWait(driver, 20).until(
             EC.visibility_of_element_located((By.CLASS_NAME, "_row_15kiv_90"))
         )
     except Exception as e:
-        print(f"Error loading problem list page {page_number}:", e)
+        print(f"第 {page_number} 页加载问题列表时出错：", e)
         driver.quit()
         return []
     
@@ -39,15 +40,20 @@ def get_problem_list(page_number):
     
     problems = []
     for row in problem_rows:
-        title_tag = row.find("a", href=True)
-        submission_count_tag = row.find_all("td")[2]
-        acceptance_rate_tag = row.find_all("td")[3]
+        td_elements = row.find_all("td")
+        #print(td_elements)
+        id_tag = td_elements[0].find("b")  # 提取问题 ID
+        title_tag = td_elements[1].find("a", href=True)  # 提取问题名称
+        submission_count_tag = td_elements[2]  # 提取提交数量
+        acceptance_rate_tag = td_elements[3]  # 提取通过率
         
-        if title_tag and submission_count_tag and acceptance_rate_tag:
-            problem_name = title_tag.text.strip()
-            submission_count = submission_count_tag.text.strip()
-            acceptance_rate = acceptance_rate_tag.text.strip()
+        if id_tag and title_tag and submission_count_tag and acceptance_rate_tag:
+            problem_id = id_tag.text.strip()  # 提取问题 ID
+            problem_name = title_tag.text.strip()  # 提取问题名称
+            submission_count = submission_count_tag.text.strip()  # 提取提交数量
+            acceptance_rate = acceptance_rate_tag.text.strip()  # 提取通过率
             problems.append({
+                "id": problem_id,
                 "name": problem_name,
                 "submission_count": submission_count,
                 "acceptance_rate": acceptance_rate
@@ -59,15 +65,15 @@ def get_problem_list(page_number):
 def main():
     all_problem_details = []
     
-    # Loop through all 67 pages
+    # 遍历所有 67 页
     for page_number in range(1, 68):
         problems = get_problem_list(page_number)
         all_problem_details.extend(problems)
-        time.sleep(1)  # To avoid overwhelming the server with requests
+       # time.sleep(1)  # 避免对服务器造成过大请求压力
     
-    # Save the data to a CSV file
+    # 将数据保存到 CSV 文件
     with open("loj_problems_details.csv", "w", newline='', encoding='utf-8-sig') as csvfile:
-        fieldnames = ["name", "submission_count", "acceptance_rate"]
+        fieldnames = ["id", "name", "submission_count", "acceptance_rate"]
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         for detail in all_problem_details:
